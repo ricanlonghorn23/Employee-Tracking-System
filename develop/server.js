@@ -9,6 +9,7 @@ const pool = new Pool({
   port: 5432,
 });
 
+
 async function startApp() {
   const { action } = await inquirer.prompt([
     {
@@ -16,39 +17,39 @@ async function startApp() {
       message: 'What would you like to do?',
       name: 'action',
       choices: [
-        'View all departments',
-        'View all roles',
         'View all employees',
-        'Add a department',
-        'Add a role',
         'Add an employee',
         'Update an employee role',
+        'View all roles',
+        'Add a role',
+        'View all departments',
+        'Add a department',
         'Exit',
       ],
     },
   ]);
 
   switch (action) {
-    case 'View all departments':
-      viewDepartments();
-      break;
-    case 'View all roles':
-      viewRoles();
-      break;
     case 'View all employees':
       viewEmployees();
       break;
-    case 'Add a department':
-      addDepartment();
-      break;
-    case 'Add a role':
-      addRole();
-      break;
-    case 'Add an employee':
+      case 'Add an employee':
       addEmployee();
       break;
-    case 'Update an employee role':
+      case 'Update an employee role':
       updateEmployeeRole();
+      break;
+      case 'View all roles':
+      viewRoles();
+      break;
+      case 'Add a role':
+      addRole();
+      break;
+    case 'View all departments':
+      viewDepartments();
+      break;
+    case 'Add a department':
+      addDepartment();
       break;
     case 'Exit':
       pool.end();
@@ -64,19 +65,29 @@ async function viewDepartments() {
 }
 
 async function viewRoles() {
-  const roles = await pool.query('SELECT * FROM roles');
+  const roles = await pool.query(`
+  SELECT r.id, r.title, r.salary, d.name AS department
+  FROM roles r
+  JOIN departments d ON r.department_id = d.id
+`);
   console.table(roles.rows);
   startApp();
 }
 
 async function viewEmployees() {
   const employees = await pool.query(`
-    SELECT e.id, e.first_name, e.last_name, r.title AS role, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
-    FROM employees e
-    INNER JOIN roles r ON e.role_id = r.id
-    INNER JOIN departments d ON r.department_id = d.id
-    LEFT JOIN employees m ON e.manager_id = m.id
-  `);
+  SELECT 
+    e.first_name,
+    e.last_name,
+    r.title AS role_title,
+    d.name AS department_name,
+    r.salary,
+    COALESCE(CONCAT(m.first_name, ' ', m.last_name), 'null') AS manager_name
+  FROM employees e
+  JOIN roles r ON e.role_id = r.id
+  JOIN departments d ON r.department_id = d.id
+  LEFT JOIN employees m ON e.manager_id = m.id
+`);
   console.table(employees.rows);
   startApp();
 }
@@ -121,8 +132,8 @@ async function addRole() {
   ]);
 
   await pool.query('INSERT INTO roles (title, salary, department_id) VALUES ($1, $2, $3)', [
-    title,
-    salary,
+    title, 
+    salary, 
     department,
   ]);
   console.log('Role added successfully!');
